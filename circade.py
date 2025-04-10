@@ -16,7 +16,7 @@ class PeriodToCircadeText:
                 'days': period_seconds / cls.SECONDS_IN_DAY,
                 'weeks': period_seconds / cls.SECONDS_IN_WEEK,
                 'months': period_seconds / cls.SECONDS_IN_MONTH,
-                'volume': len(item['value'])
+                'power_spectrum': item['power_spectrum']
             })
         
         return converted_data
