@@ -2,6 +2,7 @@ import numpy as np
 from scipy.fft import fft, fftfreq
 from scipy.signal import find_peaks, windows
 from collections import defaultdict
+from astropy.timeseries import LombScargle
 
 class FourierIntensityProcessor:
     def __init__(self, sampling_rate=None, num_peaks=5):
@@ -406,3 +407,70 @@ class SlidingWindowFourierProcessor:
         }
 
         return result
+
+
+class LombScarglePeriodDetector:
+    def __init__(self, min_period=0.1, max_period=168, n_periods=5, time_unit='hours', samples_per_peak=5):
+        self.min_period = min_period
+        self.max_period = max_period
+        self.n_periods = n_periods
+        self.time_unit = time_unit
+        self.samples_per_peak = samples_per_peak  # новий параметр
+
+    def process(self, activity_data):
+        timestamps = np.array([point['time'] for point in activity_data])
+
+        if len(timestamps) <= 1:
+            return [], None
+
+        t_min = timestamps.min()
+        timestamps_normalized = timestamps - t_min
+        timestamps_hours = timestamps_normalized / 3600
+
+        ls = LombScargle(timestamps_hours, np.ones_like(timestamps_hours))
+        min_freq = 1 / self.max_period
+        max_freq = 1 / self.min_period
+
+        # додано використання samples_per_peak
+        frequency, power = ls.autopower(
+            minimum_frequency=min_freq,
+            maximum_frequency=max_freq,
+            samples_per_peak=self.samples_per_peak
+        )
+
+        period = 1 / frequency
+        peaks, properties = find_peaks(power, prominence=0.05 * np.max(power))
+        peak_powers = power[peaks]
+        peak_periods = period[peaks]
+        sorted_indices = np.argsort(-peak_powers)
+        peak_periods = peak_periods[sorted_indices]
+        peak_powers = peak_powers[sorted_indices]
+
+        if len(peak_periods) > self.n_periods:
+            peak_periods = peak_periods[:self.n_periods]
+            peak_powers = peak_powers[:self.n_periods]
+
+        max_power = np.max(power)
+        significances = peak_powers / max_power * 100
+
+        detected_periods = []
+
+        for i, (pd, pwr, sig) in enumerate(zip(peak_periods, peak_powers, significances)):
+            if self.time_unit == 'minutes':
+                period_value = pd * 60
+            elif self.time_unit == 'seconds':
+                period_value = pd * 3600
+            else:
+                period_value = pd
+
+            detected_periods.append({
+                'period': period_value,
+                'power': float(pwr),
+                'significance': float(sig)
+            })
+
+        return detected_periods, {
+            'timestamps_hours': timestamps_hours,
+            'period': period,
+            'power': power
+        }
