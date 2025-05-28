@@ -415,7 +415,7 @@ class LombScarglePeriodDetector:
         self.max_period = max_period
         self.n_periods = n_periods
         self.time_unit = time_unit
-        self.samples_per_peak = samples_per_peak  # новий параметр
+        self.samples_per_peak = samples_per_peak
 
     def process(self, activity_data):
         timestamps = np.array([point['time'] for point in activity_data])
@@ -431,7 +431,6 @@ class LombScarglePeriodDetector:
         min_freq = 1 / self.max_period
         max_freq = 1 / self.min_period
 
-        # додано використання samples_per_peak
         frequency, power = ls.autopower(
             minimum_frequency=min_freq,
             maximum_frequency=max_freq,
